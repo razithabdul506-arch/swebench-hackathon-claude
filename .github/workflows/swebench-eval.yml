@@ -44,7 +44,8 @@ jobs:
           CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
         working-directory: /testbed
         run: |
-          # Use the script from the root of your repo
+          # Use find to verify file existence first (helps with debugging)
+          ls -R $GITHUB_WORKSPACE
           python3 $GITHUB_WORKSPACE/scripts/run_claude.py --task-file $GITHUB_WORKSPACE/task.yaml
 
       - name: Execute post-verification
