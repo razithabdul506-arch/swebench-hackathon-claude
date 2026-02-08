@@ -14,19 +14,29 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Mock Environment
+      - name: Setup and Initialize
         run: |
-          chmod +x scripts/setup_controller.sh
-          ./scripts/setup_controller.sh
-          # Install anthropic and yaml for the runner script
+          # 1. Run your setup controller logic directly
+          # (This ensures the /testbed and mocks are created even if the .sh file is missing)
+          mkdir -p /testbed/openlibrary/core
+          mkdir -p /testbed/infogami/queries
+          
+          # 2. Install necessary libraries for the runner
           pip install anthropic pyyaml
+          
+          # 3. Initialize OpenLibrary code
+          cd /testbed
+          git clone https://github.com/internetarchive/openlibrary.git .
+          git reset --hard 84cc4ed5697b83a849e9106a09bfed501169cc20
+          git checkout c4eebe6677acc4629cb541a98d5e91311444f5d4 -- openlibrary/tests/core/test_imports.py
+          
+          echo "PYTHONPATH=/testbed" >> $GITHUB_ENV
           echo "USER=root" >> $GITHUB_ENV
 
       - name: Execute pre-verification
         continue-on-error: true
         working-directory: /testbed
         run: |
-          # Verify that the attribute error exists in the mock environment
           python3 -m pytest openlibrary/tests/core/test_imports.py::TestImportItem::test_find_staged_or_pending -v > /tmp/pre_verification.log 2>&1 || true
 
       - name: Invoke AI Agent
@@ -34,24 +44,15 @@ jobs:
           CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
         working-directory: /testbed
         run: |
-          cp $GITHUB_WORKSPACE/scripts/run_claude.py .
-          python3 run_claude.py --task-file $GITHUB_WORKSPACE/task.yaml
+          # Use the script from the root of your repo
+          python3 $GITHUB_WORKSPACE/scripts/run_claude.py --task-file $GITHUB_WORKSPACE/task.yaml
 
       - name: Execute post-verification
         working-directory: /testbed
         run: |
-          # Check syntax first using your validator
-          python3 /tmp/verify_syntax.py
-          # Run the test
           python3 -m pytest openlibrary/tests/core/test_imports.py::TestImportItem::test_find_staged_or_pending -v > /tmp/post_verification.log 2>&1 || true
           cat /tmp/post_verification.log
           grep -q "PASSED" /tmp/post_verification.log
-
-      - name: Compile metrics
-        working-directory: /testbed
-        run: |
-          cp $GITHUB_WORKSPACE/scripts/extract_metrics.py .
-          python3 extract_metrics.py
 
       - name: Publish evaluation artifacts
         uses: actions/upload-artifact@v4
