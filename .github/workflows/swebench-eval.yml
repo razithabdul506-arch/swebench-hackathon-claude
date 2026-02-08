@@ -16,20 +16,20 @@ jobs:
 
       - name: Setup and Initialize
         run: |
-          # 1. Run your setup controller logic directly
-          # (This ensures the /testbed and mocks are created even if the .sh file is missing)
-          mkdir -p /testbed/openlibrary/core
-          mkdir -p /testbed/infogami/queries
+          # 1. Prepare /testbed and ensure it is EMPTY
+          mkdir -p /testbed
+          cd /testbed
+          rm -rf ..?* .[!.]* * # This deletes hidden and visible files safely
           
           # 2. Install necessary libraries for the runner
           pip install anthropic pyyaml
           
-          # 3. Initialize OpenLibrary code
-          cd /testbed
+          # 3. Clone and Initialize
           git clone https://github.com/internetarchive/openlibrary.git .
           git reset --hard 84cc4ed5697b83a849e9106a09bfed501169cc20
           git checkout c4eebe6677acc4629cb541a98d5e91311444f5d4 -- openlibrary/tests/core/test_imports.py
           
+          # 4. Set environment variables
           echo "PYTHONPATH=/testbed" >> $GITHUB_ENV
           echo "USER=root" >> $GITHUB_ENV
 
